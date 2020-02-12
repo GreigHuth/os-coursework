@@ -154,7 +154,7 @@ private:
 
 		int new_order = source_order-1;
 
-		//maybe use return from first insert to insert second block
+		// might need to change the alignment of the pages
 		insert_block(*block1, new_order);
 		insert_block(*block2, new_order);
 
@@ -213,7 +213,7 @@ public:
 		// for the order on which it is being freed, for example, it is
 		// illegal to free page 1 in order-1.
 		assert(is_correct_alignment_for_order(pgd, order));
-		
+		//add pages to the list of free pages, update the pointers to point to the next free page 
 		not_implemented();
 	}
 	
@@ -229,6 +229,8 @@ public:
 	
 	/**
 	 * Initialises the allocation algorithm.
+	 * @param page_descriptors i think its a pointer to the first page descriptor
+	 * @param nr_page_descriptors i think nr_page_descriptors is the number of pages
 	 * @return Returns TRUE if the algorithm was successfully initialised, FALSE otherwise.
 	 */
 	bool init(PageDescriptor *page_descriptors, uint64_t nr_page_descriptors) override
@@ -237,7 +239,19 @@ public:
 		
 		// TODO: Initialise the free area linked list for the maximum order
 		// to initialise the allocation algorithm.
+		// STEP 1: reserve the pages the kernel needs, need to work out which pages the kernel needs
+	
 		
+		for(int i = 0; i < nr_page_descriptors; i++){
+			//if page is to be reserved then reserve it
+			if (page_descriptors->type == 1){
+				reserve_page(page_descriptors);
+			}
+			if (page_descriptors->type == 2){
+				//free_pages(page_descriptors, );
+			}
+		// STEP 2: free the rest of the pages
+		}
 		not_implemented();
 	}
 
