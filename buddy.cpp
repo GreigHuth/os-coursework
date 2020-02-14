@@ -224,7 +224,8 @@ public:
 	 */
 	bool reserve_page(PageDescriptor *pgd)
 	{
-		not_implemented();
+		//STEP 1: remove page from free_pages
+		// allocate
 	}
 	
 	/**
@@ -237,22 +238,10 @@ public:
 	{
 		mm_log.messagef(LogLevel::DEBUG, "Buddy Allocator Initialising pd=%p, nr=0x%lx", page_descriptors, nr_page_descriptors);
 		
-		// TODO: Initialise the free area linked list for the maximum order
-		// to initialise the allocation algorithm.
-		// STEP 1: reserve the pages the kernel needs, need to work out which pages the kernel needs
-	
+		// Initialise the free area linked list for the maximum order
+		// to initialise the allocation algorithm.	
+		free_pages(*page_descriptors, MAX_ORDER);
 		
-		for(int i = 0; i < nr_page_descriptors; i++){
-			//if page is to be reserved then reserve it
-			if (page_descriptors->type == 1){
-				reserve_page(page_descriptors);
-			}
-			if (page_descriptors->type == 2){
-				//free_pages(page_descriptors, );
-			}
-		// STEP 2: free the rest of the pages
-		}
-		not_implemented();
 	}
 
 	/**
