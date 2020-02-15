@@ -145,6 +145,8 @@ private:
 		// Make sure the block_pointer is correctly aligned.
 		assert(is_correct_alignment_for_order(*block_pointer, source_order));
 
+		int new_order = source_order-1;
+
 		// starting address of the first block is the same as the source block
 		PageDescriptor **block1 = block_pointer;
 
@@ -152,7 +154,7 @@ private:
 		int midpoint = pages_per_block(source_order)/2;
 		PageDescriptor **block2 = block_pointer + midpoint;
 
-		int new_order = source_order-1;
+		
 
 		// might need to change the alignment of the pages
 		insert_block(*block1, new_order);
@@ -176,7 +178,7 @@ private:
 		// Make sure the area_pointer is correctly aligned.
 		assert(is_correct_alignment_for_order(*block_pointer, source_order));
 
-		// TODO: Implement this function
+		
 		return nullptr;		
 	}
 	
@@ -199,7 +201,26 @@ public:
 	 */
 	PageDescriptor *alloc_pages(int order) override
 	{
-		not_implemented();
+		//check all orders starting from the given order and looking upwards to find and make a free
+		for (int i = order; i < MAX_ORDER;){
+
+			// pointer to a pointed to the first free area in order i
+			PageDescriptor **pgd = &_free_areas[i];
+
+			if (pgd = NULL){
+				i++;
+			}
+			else{
+				if (i = order){
+					return *pgd;
+				}
+				else{
+					split_block(pgd, i);
+					i--;
+				}
+			}
+		}
+		//this order might not have a free page, need to use split_block to make a page in the order
 	}
 	
 	/**
@@ -213,8 +234,9 @@ public:
 		// for the order on which it is being freed, for example, it is
 		// illegal to free page 1 in order-1.
 		assert(is_correct_alignment_for_order(pgd, order));
-		//add pages to the list of free pages, update the pointers to point to the next free page 
-		not_implemented();
+		// append the next_free pointer at the tail of free_pages to point to the pgd given
+		// if the buddy of a page is in the same order of _free_pages then merge them
+		
 		
 	}
 	
@@ -243,7 +265,7 @@ public:
 					}
 					//condition when element is the last element in the list
 					if (pg->next_free == nullptr){
-
+						
 					}
 
 					
@@ -261,8 +283,8 @@ public:
 	
 	/**
 	 * Initialises the allocation algorithm.
-	 * @param page_descriptors i think its a pointer to the first page descriptor
-	 * @param nr_page_descriptors i think nr_page_descriptors is the number of pages
+	 * @param page_descriptors pgd to start allocating from
+	 * @param nr_page_descriptors number of pages in the system
 	 * @return Returns TRUE if the algorithm was successfully initialised, FALSE otherwise.
 	 */
 	bool init(PageDescriptor *page_descriptors, uint64_t nr_page_descriptors) override
@@ -271,9 +293,15 @@ public:
 		
 		// Initialise the free area linked list for the maximum order
 		// to initialise the allocation algorithm.
-		// while there are still free pages to allocate allocate them
-		//    need a loop here to do that cause they all wont fit in the bottom order	
-		free_pages(page_descriptors, MAX_ORDER);
+
+		//need to populate bottom order with as many 
+
+		unsigned int blocks_in_MAX_ORDER = nr_page_descriptors/pages_per_block(MAX_ORDER);
+
+		for (unsigned int i; i < blocks_in_MAX_ORDER; i++){
+			free_pages(page_descriptors, MAX_ORDER);
+			page_descriptors += pages_per_block(MAX_ORDER);
+		}
 		
 	}
 
