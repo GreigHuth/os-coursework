@@ -215,6 +215,7 @@ public:
 		assert(is_correct_alignment_for_order(pgd, order));
 		//add pages to the list of free pages, update the pointers to point to the next free page 
 		not_implemented();
+		
 	}
 	
 	/**
@@ -224,9 +225,39 @@ public:
 	 */
 	bool reserve_page(PageDescriptor *pgd)
 	{
-		//STEP 1: remove page from free_pages
-		// allocate
-	}
+		// i think this method is basically just implement how to remove pages from a linked list
+
+		// iterate through free pages from max order down (maybe more efficient)
+		for (unsigned int i = MAX_ORDER; i > 0; i--){
+
+			//points to the first free page in order i
+			PageDescriptor *pg = _free_areas[i];
+			//iterate through all pages in the order
+			while (pg)
+			{
+				if (pgd == pg){
+					// condition when element is the first element in the list
+					if (pg == _free_areas[i]){
+						_free_areas[i] = pg->next_free;
+						return true;
+					}
+					//condition when element is the last element in the list
+					if (pg->next_free == nullptr){
+
+					}
+
+					
+						
+						
+				}
+				pg= pg->next_free;
+			}
+				
+		}
+
+	
+	} 
+
 	
 	/**
 	 * Initialises the allocation algorithm.
@@ -239,8 +270,10 @@ public:
 		mm_log.messagef(LogLevel::DEBUG, "Buddy Allocator Initialising pd=%p, nr=0x%lx", page_descriptors, nr_page_descriptors);
 		
 		// Initialise the free area linked list for the maximum order
-		// to initialise the allocation algorithm.	
-		free_pages(*page_descriptors, MAX_ORDER);
+		// to initialise the allocation algorithm.
+		// while there are still free pages to allocate allocate them
+		//    need a loop here to do that cause they all wont fit in the bottom order	
+		free_pages(page_descriptors, MAX_ORDER);
 		
 	}
 
