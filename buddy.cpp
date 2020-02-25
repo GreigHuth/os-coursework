@@ -178,8 +178,38 @@ private:
 		// Make sure the area_pointer is correctly aligned.
 		assert(is_correct_alignment_for_order(*block_pointer, source_order));
 
-		
-		return nullptr;		
+		// both blocks are free
+		// get buddy of the block given 
+		// check which one is the left one
+		// point the next_free pointer in the tail of the left block to the beginning of the right block 
+		// insert block into order  
+
+		//pointer to the buddy block
+		PageDescriptor *buddy_pointer = buddy_of(*block_pointer);
+		//check that buddy is also correctly aligned
+		assert(is_correct_alignment_for_order(buddy_pointer, source_order));
+
+
+		//works out which one is the left and right block and sets it accordingly
+		PageDescriptorn* left_block = nullptr;
+		PageDescription* right_block = nullptr;
+		if (*block_pointer > buddy_pointer ){
+			left_block = buddy_pointer;
+			right_block = *block_pointer;
+		}
+		else{
+			left_block = *block_pointer;
+			right_block = buddy_pointer;
+		}
+
+		//find the tail of the left block and point it to the beginning of the right block
+		PageDescriptor** left_tail = *block_pointer + (pages_per_block(source_order)-1);
+		left_tail->next_free = right_block;
+
+		return insert_block(left_block, source_order+1);
+
+
+				
 	}
 	
 public:
@@ -202,25 +232,28 @@ public:
 	PageDescriptor *alloc_pages(int order) override
 	{
 		//check all orders starting from the given order and looking upwards to find and make a free
-		for (int i = order; i < MAX_ORDER;){
+		for (int i = order; i < MAX_ORDER-1;){
 
-			// pointer to a pointed to the first free area in order i
+			// pointer to a pointer to the address of the first free block in order i of _free_areas 
 			PageDescriptor **pgd = &_free_areas[i];
 
+			//if not free pages exist in the current order then move to the greater one
 			if (pgd = NULL){
 				i++;
 			}
 			else{
+
+				//if a free page exists in the order you want then return the pgd of that page
 				if (i = order){
 					return *pgd;
 				}
+				// if a free page exists in a higher order then split the block and check the lower order
 				else{
 					split_block(pgd, i);
 					i--;
 				}
 			}
 		}
-		//this order might not have a free page, need to use split_block to make a page in the order
 	}
 	
 	/**
@@ -235,9 +268,10 @@ public:
 		// illegal to free page 1 in order-1.
 		assert(is_correct_alignment_for_order(pgd, order));
 		// append the next_free pointer at the tail of free_pages to point to the pgd given
-		// if the buddy of a page is in the same order of _free_pages then merge them
-		
-		
+		// if this blocks buddy is free then merge it
+		// 		if its buddy is free then merge them
+	 	//		if not then move on
+		// if the buddy of this new merged block is free then merge that
 	}
 	
 	/**
@@ -249,16 +283,20 @@ public:
 	{
 		// i think this method is basically just implement how to remove pages from a linked list
 
+		//if the page is in the middle of a block then it needs to be 
+
+
 		// iterate through free pages from max order down (maybe more efficient)
-		for (unsigned int i = MAX_ORDER; i > 0; i--){
+		for (unsigned int i = MAX_ORDER-1; i > 0; i--){
 
 			//points to the first free page in order i
-			PageDescriptor *pg = _free_areas[i];
+			PageDescriptor* pg = _free_areas[i];
 			//iterate through all pages in the order
+			PageDescriptor* probe = free_pages[i];
 			while (pg)
 			{
 				if (pgd == pg){
-					// condition when element is the first element in the list
+					//case when element is the first element in the list
 					if (pg == _free_areas[i]){
 						_free_areas[i] = pg->next_free;
 						return true;
@@ -296,7 +334,7 @@ public:
 
 		//need to populate bottom order with as many 
 
-		unsigned int blocks_in_MAX_ORDER = nr_page_descriptors/pages_per_block(MAX_ORDER);
+		unsigned int blocks_in_MAX_ORDER = nr_page_descriptors/pages_per_block(MAX_ORDER-1);
 
 		for (unsigned int i; i < blocks_in_MAX_ORDER; i++){
 			free_pages(page_descriptors, MAX_ORDER);
