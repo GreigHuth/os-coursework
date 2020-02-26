@@ -187,7 +187,6 @@ private:
 		//pointer to the buddy block
 		PageDescriptor *buddy_pointer = buddy_of(*block_pointer);
 		//check that buddy is also correctly aligned
-		assert(is_correct_alignment_for_order(buddy_pointer, source_order));
 
 
 		//works out which one is the left and right block and sets it accordingly
@@ -202,9 +201,9 @@ private:
 			right_block = buddy_pointer;
 		}
 
-		//find the tail of the left block and point it to the beginning of the right block
-		PageDescriptor** left_tail = *block_pointer + (pages_per_block(source_order)-1);
-		left_tail->next_free = right_block;
+
+		remove_block(left_block, source_order);
+		remove_block(right_block, source_order);
 
 		return insert_block(left_block, source_order+1);
 
@@ -283,7 +282,8 @@ public:
 	{
 		// i think this method is basically just implement how to remove pages from a linked list
 
-		//if the page is in the middle of a block then it needs to be 
+		//if the page is in the middle of a block then it needs to be isolated before it can be removed
+		//
 
 
 		// iterate through free pages from max order down (maybe more efficient)
