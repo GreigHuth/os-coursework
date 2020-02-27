@@ -185,13 +185,13 @@ private:
 		// insert block into order  
 
 		//pointer to the buddy block
-		PageDescriptor *buddy_pointer = buddy_of(*block_pointer);
+		PageDescriptor *buddy_pointer = buddy_of(*block_pointer, source_order);
 		//check that buddy is also correctly aligned
 
-
+		//TODO: maybe 
 		//works out which one is the left and right block and sets it accordingly
-		PageDescriptorn* left_block = nullptr;
-		PageDescription* right_block = nullptr;
+		PageDescriptor* left_block = nullptr;
+		PageDescriptor* right_block = nullptr;
 		if (*block_pointer > buddy_pointer ){
 			left_block = buddy_pointer;
 			right_block = *block_pointer;
@@ -237,7 +237,7 @@ public:
 			PageDescriptor **pgd = &_free_areas[i];
 
 			//if not free pages exist in the current order then move to the greater one
-			if (pgd = NULL){
+			if (*pgd == nullptr){
 				i++;
 			}
 			else{
@@ -271,6 +271,29 @@ public:
 		// 		if its buddy is free then merge them
 	 	//		if not then move on
 		// if the buddy of this new merged block is free then merge that
+
+		//buddy of given page
+		PageDescriptor *buddy = buddy_of(pgd, order);
+		bool buddy_free;
+		//used to iterate through free areas
+		PageDescriptor **free_block = &_free_areas[order];
+
+		//while free_block still points to a block, 
+		//check all the blocks to see if one of them is the buddy
+		while(*free_block){
+
+			
+			if (buddy == *free_block){
+				buddy_free = true;
+			}
+			else{
+				*free_block += pages_per_block(order);
+			}
+		}
+		if (buddy_free){
+			PageDescriptor** x = merge_block(&pgd, order);
+			free_pages(*x, order +1);
+		}
 	}
 	
 	/**
@@ -283,8 +306,8 @@ public:
 		// i think this method is basically just implement how to remove pages from a linked list
 
 		//if the page is in the middle of a block then it needs to be isolated before it can be removed
-		//
-
+		
+		
 
 		// iterate through free pages from max order down (maybe more efficient)
 		for (unsigned int i = MAX_ORDER-1; i > 0; i--){
@@ -292,7 +315,7 @@ public:
 			//points to the first free page in order i
 			PageDescriptor* pg = _free_areas[i];
 			//iterate through all pages in the order
-			PageDescriptor* probe = free_pages[i];
+			PageDescriptor* probe = _free_areas[i];
 			while (pg)
 			{
 				if (pgd == pg){
