@@ -59,6 +59,7 @@ private:
 	 */
 	PageDescriptor *buddy_of(PageDescriptor *pgd, int order)
 	{
+		mm_log.messagef(LogLevel::DEBUG, "GETTING THE BUDDY OF:%p IN ORDER:%d", pgd, order);
 		// (1) Make sure 'order' is within range
 		if (order >= MAX_ORDER) {
 			return NULL;
@@ -89,10 +90,11 @@ private:
 	 */
 	PageDescriptor **insert_block(PageDescriptor *pgd, int order)
 	{
+		mm_log.messagef(LogLevel::DEBUG, "INSERTING BLOCK:%p INTO ORDER:%d", pgd, order);
 		// Starting from the _free_area array, find the slot in which the page descriptor
 		// should be inserted.
+
 		PageDescriptor **slot = &_free_areas[order];
-		
 		// Iterate whilst there is a slot, and whilst the page descriptor pointer is numerically
 		// greater than what the slot is pointing to.
 		while (*slot && pgd > *slot) {
@@ -115,6 +117,7 @@ private:
 	 */
 	void remove_block(PageDescriptor *pgd, int order)
 	{
+		mm_log.messagef(LogLevel::DEBUG, "REMOVING BLOCK:%p IN ORDER:%d",pgd, order);
 		// Starting from the _free_area array, iterate until the block has been located in the linked-list.
 		PageDescriptor **slot = &_free_areas[order];
 		while (*slot && pgd != *slot) {
@@ -140,6 +143,7 @@ private:
 	PageDescriptor *split_block(PageDescriptor **block_pointer, int source_order)
 	{
 		// Make sure there is an incoming pointer.
+		mm_log.messagef(LogLevel::DEBUG, "SPLITTING BLOCK:%p IN ORDER:%d",*block_pointer, source_order);
 		assert(*block_pointer);
 		
 		// Make sure the block_pointer is correctly aligned.
@@ -148,19 +152,19 @@ private:
 		int new_order = source_order-1;
 
 		// starting address of the first block is the same as the source block
-		PageDescriptor **block1 = block_pointer;
+		PageDescriptor *block1 = *block_pointer;
 
-		//starting address of the second block is the address of the midpoint of the source block 
-		int midpoint = pages_per_block(source_order)/2;
-		PageDescriptor **block2 = block_pointer + midpoint;
+		//starting address of the second block  
+		PageDescriptor *block2 = buddy_of(block1, new_order);
 
-		
+		//remove the block from the given order
+		remove_block(block1, source_order);
 
-		// might need to change the alignment of the pages
-		insert_block(*block1, new_order);
-		insert_block(*block2, new_order);
+		//insert both the new blocks into the upper order
+		insert_block(block1, new_order);
+		insert_block(block2, new_order);
 
-		return *block1;		
+		return block1;		
 	}
 	
 	/**
@@ -173,25 +177,17 @@ private:
 	 */
 	PageDescriptor **merge_block(PageDescriptor **block_pointer, int source_order)
 	{
-		assert(*block_pointer);
-		
+		mm_log.messagef(LogLevel::DEBUG, "MERGING BLOCK:%p IN ORDER:%d",*block_pointer,source_order);	
 		// Make sure the area_pointer is correctly aligned.
-		assert(is_correct_alignment_for_order(*block_pointer, source_order));
-
-		// both blocks are free
-		// get buddy of the block given 
-		// check which one is the left one
-		// point the next_free pointer in the tail of the left block to the beginning of the right block 
-		// insert block into order  
+		assert(is_correct_alignment_for_order(*block_pointer, source_order)); 
 
 		//pointer to the buddy block
 		PageDescriptor *buddy_pointer = buddy_of(*block_pointer, source_order);
 		//check that buddy is also correctly aligned
 
-		//TODO: maybe 
-		//works out which one is the left and right block and sets it accordingly
 		PageDescriptor* left_block = nullptr;
 		PageDescriptor* right_block = nullptr;
+		//whichever block address is smaller is the left hand one
 		if (*block_pointer > buddy_pointer ){
 			left_block = buddy_pointer;
 			right_block = *block_pointer;
@@ -230,20 +226,24 @@ public:
 	 */
 	PageDescriptor *alloc_pages(int order) override
 	{
+		mm_log.messagef(LogLevel::DEBUG, "ALLOCATING PAGES IN ORDER:%d", order);
+
 		//check all orders starting from the given order and looking upwards to find and make a free
-		for (int i = order; i < MAX_ORDER-1;){
+		for (int i = order; i < MAX_ORDER;){
 
 			// pointer to a pointer to the address of the first free block in order i of _free_areas 
 			PageDescriptor **pgd = &_free_areas[i];
-
-			//if not free pages exist in the current order then move to the greater one
-			if (*pgd == nullptr){
+			mm_log.messagef(LogLevel::DEBUG, "LOOKING IN ORDER:%d", i);
+			//if no free pages exist in the current order then move to the greater one
+			if (*pgd == NULL){
 				i++;
 			}
 			else{
-
+				mm_log.messagef(LogLevel::DEBUG, "FREE PAGE FOUND IN ORDER:%d", i);
 				//if a free page exists in the order you want then return the pgd of that page
-				if (i = order){
+				if (i == order){
+					
+					remove_block(*pgd, i);
 					return *pgd;
 				}
 				// if a free page exists in a higher order then split the block and check the lower order
@@ -253,6 +253,8 @@ public:
 				}
 			}
 		}
+		//if it gets to the end of this loop then return null
+		return NULL;
 	}
 	
 	/**
@@ -265,35 +267,49 @@ public:
 		// Make sure that the incoming page descriptor is correctly aligned
 		// for the order on which it is being freed, for example, it is
 		// illegal to free page 1 in order-1.
+		mm_log.messagef(LogLevel::DEBUG, "FREEING PAGES STARTING FROM:%p ORDER:%d", pgd, order);
 		assert(is_correct_alignment_for_order(pgd, order));
-		// append the next_free pointer at the tail of free_pages to point to the pgd given
-		// if this blocks buddy is free then merge it
-		// 		if its buddy is free then merge them
-	 	//		if not then move on
-		// if the buddy of this new merged block is free then merge that
 
-		//buddy of given page
+		//firstly free the given page
+		insert_block(pgd, order);
+
+		//check to see if buddy is also free
+		bool buddy_free = is_buddy_free(pgd, order);
+		
+		//if this buddy is free, merge it then keep checking the new block formed
+		// to see if it and its buddy can be merged
+		while(buddy_free){
+			PageDescriptor** new_block = merge_block(&pgd, order);
+			pgd = *new_block;
+			order++;
+			buddy_free = is_buddy_free(pgd, order);
+		}
+	}
+
+
+	/**
+	 *checks to see if the buddy of the given pgd is also free and in the same order,
+	 * 		returns true if yes, false otherwise
+	 * assumes the pgd is in _free_areas for the given order 
+	 * @param pgd pointer to the page to find the buddy off
+	 * @param order order to find the buddy in
+	 */
+	bool is_buddy_free(PageDescriptor* pgd, int order){
+
+		
 		PageDescriptor *buddy = buddy_of(pgd, order);
-		bool buddy_free;
-		//used to iterate through free areas
-		PageDescriptor **free_block = &_free_areas[order];
+		mm_log.messagef(LogLevel::DEBUG, "PGD:%p BUDDY:%p", pgd, buddy);
 
-		//while free_block still points to a block, 
-		//check all the blocks to see if one of them is the buddy
-		while(*free_block){
-
-			
-			if (buddy == *free_block){
-				buddy_free = true;
-			}
-			else{
-				*free_block += pages_per_block(order);
-			}
+		mm_log.messagef(LogLevel::DEBUG, "BUDDY NEXT FREE:%p", buddy->next_free);
+		//since the buddies are next to each other we just need to check that at least
+		// one of them is next to the other
+		// if the pgd == pgd->next_free it means we are on the lowest order and in that 
+		if ((pgd->next_free == buddy || buddy->next_free == pgd) && (pgd != pgd->next_free)){
+			return true;
 		}
-		if (buddy_free){
-			PageDescriptor** x = merge_block(&pgd, order);
-			free_pages(*x, order +1);
-		}
+		else{
+			return false;
+		}	
 	}
 	
 	/**
@@ -303,45 +319,46 @@ public:
 	 */
 	bool reserve_page(PageDescriptor *pgd)
 	{
-		// i think this method is basically just implement how to remove pages from a linked list
+		mm_log.messagef(LogLevel::DEBUG, "RESERVING PAGE:%p", pgd);
 
-		//if the page is in the middle of a block then it needs to be isolated before it can be removed
+		//1. find the block and order the page is in
+		//2. keep splitting that block until the page is in the lowest order
+		//3. remove that page 
+		//4. return true
+
+		// order to start searching from
+		int order = MAX_ORDER-1;
+		PageDescriptor* block_with_page ;
+		bool page_reserved = false;
+		//this nested loop goes through every block in every order in _free_areas
+		// to find the block the required page is in
 		
-		
-
-		// iterate through free pages from max order down (maybe more efficient)
-		for (unsigned int i = MAX_ORDER-1; i > 0; i--){
-
-			//points to the first free page in order i
-			PageDescriptor* pg = _free_areas[i];
-			//iterate through all pages in the order
-			PageDescriptor* probe = _free_areas[i];
-			while (pg)
-			{
-				if (pgd == pg){
-					//case when element is the first element in the list
-					if (pg == _free_areas[i]){
-						_free_areas[i] = pg->next_free;
-						return true;
-					}
-					//condition when element is the last element in the list
-					if (pg->next_free == nullptr){
-						
-					}
-
-					
-						
-						
+		while(order >= 0){
+			PageDescriptor **slot = &_free_areas[order];
+			//while there is still a block to check
+			while(*slot){
+				if (pgd >= *slot && pgd <= *slot+pages_per_block(order)){
+					block_with_page = *slot;
+					//if the page is found then split the block that has the page in it
+					split_block(&block_with_page, order);
+					*slot = nullptr;
 				}
-				pg= pg->next_free;
 			}
-				
+			order--;
 		}
 
-	
+		//just checking that the page is actually in the lowest order
+		if(is_correct_alignment_for_order(pgd, 0)){
+			page_reserved = true;
+		}
+		
+		//if the above code works then this should also work
+		remove_block(pgd, 0);
+		return page_reserved;
+		
 	} 
 
-	
+
 	/**
 	 * Initialises the allocation algorithm.
 	 * @param page_descriptors pgd to start allocating from
@@ -357,13 +374,14 @@ public:
 
 		//need to populate bottom order with as many 
 
-		unsigned int blocks_in_MAX_ORDER = nr_page_descriptors/pages_per_block(MAX_ORDER-1);
+		int blocks_in_MAX_ORDER = nr_page_descriptors/pages_per_block(MAX_ORDER-1);
 
-		for (unsigned int i; i < blocks_in_MAX_ORDER; i++){
-			free_pages(page_descriptors, MAX_ORDER);
-			page_descriptors += pages_per_block(MAX_ORDER);
+		//puts all the blocks into the max order that it can, ignores the left over ones
+		for (int i = 0; i < blocks_in_MAX_ORDER; i++){
+			insert_block(page_descriptors, MAX_ORDER-1);
+			page_descriptors += pages_per_block(MAX_ORDER-1);
 		}
-		
+		return true;
 	}
 
 	/**
